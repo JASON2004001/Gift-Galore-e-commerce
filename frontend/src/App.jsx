@@ -6,7 +6,8 @@ import ProductDetail from './pages/ProductDetail';
 import { initialProducts } from './data/products';
 import qrCodeImg from './Bar code/OR Code.png';
 
-const API_BASE = 'http://localhost:5000/api/v1';
+// Live Render Backend API URL
+const API_BASE = 'https://gift-galore-backend.onrender.com/api/v1';
 
 function App() {
   const [products, setProducts] = useState(initialProducts);
@@ -85,7 +86,7 @@ function App() {
         }
       }
     } catch (err) {
-      console.log('MongoDB server offline, using fallback products');
+      console.log('Backend server offline or sleeping, using fallback products');
     }
   };
 
@@ -148,7 +149,7 @@ function App() {
         setActiveTab('admin');
       }
     } catch (err) {
-      alert('Backend server is not responding. Please make sure backend is running on port 5000.');
+      alert('Backend server is not responding. Please make sure the service is awake and running on Render.');
     }
   };
 
@@ -198,7 +199,7 @@ function App() {
       return;
     }
     setCheckoutTarget({ type: 'single', product, qty: Number(qty) || 1 });
-    setCheckoutStep(1); // Start at address form
+    setCheckoutStep(1);
   };
 
   const handleInitiateBuyAll = () => {
@@ -208,7 +209,7 @@ function App() {
     }
     if (cart.length === 0) return;
     setCheckoutTarget({ type: 'all', items: cart });
-    setCheckoutStep(1); // Start at address form
+    setCheckoutStep(1);
   };
 
   // Step 1: Validate address and open Step 2 (QR code payment screen)
@@ -218,10 +219,10 @@ function App() {
       alert('Please fill out all address details.');
       return;
     }
-    setCheckoutStep(2); // Move to QR Code Payment Screen
+    setCheckoutStep(2);
   };
 
-  // Step 2: Confirm Order after viewing / making payment
+  // Step 2: Confirm Order after payment
   const handleFinalOrderSubmit = async () => {
     if (!token) {
       setAuthModalOpen(true);
@@ -268,7 +269,7 @@ function App() {
         setCart([]);
       }
 
-      alert('Order placed successfully! We have received your order and payment request.');
+      alert('Order placed successfully! We have received your order and payment details.');
       setCheckoutTarget(null);
       setCheckoutStep(1);
       fetchProducts();
@@ -453,7 +454,6 @@ function App() {
   const isAdmin = user && user.email?.toLowerCase() === 'babymanna1975@gmail.com';
   const cartSubtotal = cart.reduce((sum, item) => sum + item.price * (item.qty || 1), 0);
 
-  // Helper to extract items from any order
   const getOrderItems = (ord) => {
     if (ord.items && ord.items.length > 0) return ord.items;
     if (ord.product) {
@@ -467,7 +467,6 @@ function App() {
     return [];
   };
 
-  // Helper for computing checkout total
   const checkoutItemsSubtotal = checkoutTarget
     ? checkoutTarget.type === 'all'
       ? cartSubtotal
@@ -772,7 +771,7 @@ function App() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* Left Column: Admin Product Form with MRP, Discounted Price, Discount % */}
+                  {/* Left Column: Admin Product Form */}
                   <div className="lg:col-span-4">
                     <form onSubmit={handleCreateProduct} className="bg-white p-6 rounded-2xl border space-y-3 sticky top-20 shadow-sm">
                       <h3 className="font-bold text-base text-gray-800">Add New Cosmetic / Gift</h3>
@@ -801,7 +800,7 @@ function App() {
                         />
                       </div>
 
-                      {/* 3 Price Inputs: MRP, Discounted Price, Discount % */}
+                      {/* 3 Price Inputs */}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] font-bold text-gray-500 uppercase">M.R.P. (₹)</label>
@@ -985,7 +984,7 @@ function App() {
                       </div>
                     </div>
 
-                    {/* 2. INCOMING ORDERS CONTROLLER (SHOWS COMBINED ITEMS TOGETHER) */}
+                    {/* 2. INCOMING ORDERS CONTROLLER */}
                     <div className="bg-white p-6 rounded-2xl border shadow-sm">
                       <h3 className="font-bold text-base text-gray-800 mb-4">
                         Incoming Delivery Requests ({orders.length})
@@ -1013,7 +1012,7 @@ function App() {
                                       Recipient: <span className="font-semibold">{ord.customerName}</span> ({ord.phone})
                                     </p>
                                     <p className="text-gray-500">Address: {ord.address}, {ord.city}</p>
-                                    {ord.notes && <p className="text-gray-400 italic">Note: "{ord.notes}"</p>}
+                                    {ord.notes && <p className="text-gray-400 italic">Note / Ref: "{ord.notes}"</p>}
                                   </div>
 
                                   <span className={`px-2.5 py-1 rounded-full font-bold self-start ${
@@ -1185,7 +1184,6 @@ function App() {
                     />
                   </div>
 
-                  {/* Price Breakdown showing ₹70 Delivery */}
                   <div className="bg-rose-50/70 p-3 rounded-2xl border border-rose-100 text-xs space-y-1 mt-2">
                     <div className="flex justify-between text-gray-600">
                       <span>Product Amount (Discounted Price):</span>
@@ -1232,7 +1230,7 @@ function App() {
                   </span>
                 </div>
 
-                {/* QR Code display */}
+                {/* QR Code */}
                 <div className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-2xl border border-gray-200">
                   <img
                     src={qrCodeImg}
