@@ -5,7 +5,9 @@ import Home from './pages/Home';
 import ProductDetail from './pages/ProductDetail';
 import qrCodeImg from './Bar code/OR Code.png';
 
-const API_BASE = 'http://localhost:5000/api/v1';
+// Dynamic API Base URL for both Localhost and Vercel/Render Production
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://gift-galore-backend.onrender.com';
+const API_BASE = `${BACKEND_URL.replace(/\/+$/, '')}/api/v1`;
 
 function App() {
   const [products, setProducts] = useState([]);
@@ -154,7 +156,7 @@ function App() {
         setActiveTab('admin');
       }
     } catch (err) {
-      alert('Backend server is not responding. Please make sure backend is running on port 5000.');
+      alert('Backend server is not responding. Please make sure backend service is active.');
     }
   };
 
