@@ -40,10 +40,15 @@ export const createProduct = async (req, res) => {
   }
 };
 
-// 2. Get All Products
+// 2. Get All Products (FIXED: Uses lean() and sorts in JavaScript memory to avoid MongoDB 32MB limit)
 export const getProducts = async (req, res) => {
   try {
-    const products = await Product.find().sort({ createdAt: -1 });
+    // 1. Fetch raw documents without in-memory MongoDB sorting
+    const products = await Product.find().lean();
+
+    // 2. Sort safely inside Node.js
+    products.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+
     return res.status(200).json({ message: "Products fetched successfully", products });
   } catch (error) {
     return res.status(500).json({ message: error.message });
