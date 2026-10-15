@@ -1,5 +1,4 @@
 import dotenv from "dotenv";
-// 1. Initialize dotenv immediately at the very top
 dotenv.config({ path: "./.env" });
 
 import express from "express";
@@ -14,7 +13,7 @@ const app = express();
 
 app.disable("x-powered-by");
 
-// Allowed Origins List (Includes your live Vercel app and local dev environments)
+// Allowed Origins List (Includes production Vercel domain, previews, and local dev)
 const allowedOrigins = [
   "https://gift-galore-e-commerce-frontend.vercel.app",
   process.env.CLIENT_URL,
@@ -25,10 +24,9 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps, curl, Postman)
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
 
-      // Allow if origin is explicitly in list or any vercel preview deployment
       if (
         allowedOrigins.includes(origin) ||
         origin.endsWith(".vercel.app")
@@ -36,7 +34,6 @@ app.use(
         return callback(null, true);
       }
 
-      // Fallback: allow request
       return callback(null, true);
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -45,12 +42,12 @@ app.use(
   })
 );
 
-// High payload limit for drag-and-drop base64 product images
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({ extended: true, limit: "25mb" }));
+// High payload limits for large base64 camera image uploads
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
-// Root health-check route so you can test Render directly in browser
+// Root health-check route to verify backend status on Render
 app.get("/", (req, res) => {
   res.status(200).send("🚀 Gift Galore Backend API is active and running!");
 });
@@ -60,9 +57,29 @@ app.use("/api/v1/user", userRouter);
 app.use("/api/v1/products", productRoute);
 app.use("/api/v1/orders", orderRoute);
 
+// Global 404 handler for undefined API routes
+app.use((req, res) => {
+  res.status(404).json({ success: false, message: "Route not found" });
+});
+
+// Global error handler (handles PayloadTooLargeError and unexpected exceptions)
+app.use((err, req, res, next) => {
+  console.error("Unhandled Backend Error:", err);
+  if (err.type === "entity.too.large") {
+    return res.status(413).json({
+      success: false,
+      message: "Image payload too large. Please use a smaller or compressed image."
+    });
+  }
+  return res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 
-// Connect to Database first, then start server
+// Connect to MongoDB Atlas first, then start the HTTP server
 connectDB()
   .then(() => {
     app.listen(PORT, () => {
