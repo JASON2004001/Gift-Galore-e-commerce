@@ -3,14 +3,13 @@ import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import ProductDetail from './pages/ProductDetail';
-import { initialProducts } from './data/products';
 import qrCodeImg from './Bar code/OR Code.png';
 
-// Live Render Backend API URL
-const API_BASE = 'https://gift-galore-backend.onrender.com/api/v1';
+const API_BASE = 'http://localhost:5000/api/v1';
 
 function App() {
-  const [products, setProducts] = useState(initialProducts);
+  const [products, setProducts] = useState([]);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const [activeTab, setActiveTab] = useState('shop'); // 'shop' | 'admin' | 'my-orders' | 'cart' | 'wishlist'
   const [selectedProduct, setSelectedProduct] = useState(null);
 
@@ -40,8 +39,8 @@ function App() {
   const [authForm, setAuthForm] = useState({ name: '', email: '', password: '' });
 
   // Checkout modal & 2-step Payment state
-  const [checkoutTarget, setCheckoutTarget] = useState(null); // { type: 'single', product, qty } OR { type: 'all', items: cart }
-  const [checkoutStep, setCheckoutStep] = useState(1); // 1 = Address Form, 2 = QR Code / Payment
+  const [checkoutTarget, setCheckoutTarget] = useState(null);
+  const [checkoutStep, setCheckoutStep] = useState(1);
   const [deliveryDetails, setDeliveryDetails] = useState({
     name: '',
     phone: '',
@@ -55,7 +54,7 @@ function App() {
     name: '',
     category: '',
     mrp: '',
-    price: '', // Discounted Price
+    price: '',
     discountPercentage: '',
     stock: '',
     image: '',
@@ -74,9 +73,10 @@ function App() {
   // Load Products from MongoDB
   const fetchProducts = async () => {
     try {
+      setLoadingProducts(true);
       const res = await fetch(`${API_BASE}/products/get-products`);
       const data = await res.json();
-      if (data.products && data.products.length > 0) {
+      if (data.products && Array.isArray(data.products)) {
         setProducts(data.products);
         if (selectedProduct) {
           const updated = data.products.find(
@@ -84,9 +84,14 @@ function App() {
           );
           if (updated) setSelectedProduct(updated);
         }
+      } else {
+        setProducts([]);
       }
     } catch (err) {
-      console.log('Backend server offline or sleeping, using fallback products');
+      console.error('Error connecting to backend database:', err);
+      setProducts([]);
+    } finally {
+      setLoadingProducts(false);
     }
   };
 
@@ -149,7 +154,7 @@ function App() {
         setActiveTab('admin');
       }
     } catch (err) {
-      alert('Backend server is not responding. Please make sure the service is awake and running on Render.');
+      alert('Backend server is not responding. Please make sure backend is running on port 5000.');
     }
   };
 
@@ -192,7 +197,6 @@ function App() {
     });
   };
 
-  // Trigger Checkout Steps
   const handleInitiateSingleBuy = (product, qty = 1) => {
     if (!user) {
       setAuthModalOpen(true);
@@ -212,7 +216,6 @@ function App() {
     setCheckoutStep(1);
   };
 
-  // Step 1: Validate address and open Step 2 (QR code payment screen)
   const handleAddressProceed = (e) => {
     e.preventDefault();
     if (!deliveryDetails.name || !deliveryDetails.phone || !deliveryDetails.address || !deliveryDetails.city) {
@@ -222,7 +225,6 @@ function App() {
     setCheckoutStep(2);
   };
 
-  // Step 2: Confirm Order after payment
   const handleFinalOrderSubmit = async () => {
     if (!token) {
       setAuthModalOpen(true);
@@ -269,7 +271,7 @@ function App() {
         setCart([]);
       }
 
-      alert('Order placed successfully! We have received your order and payment details.');
+      alert('Order placed successfully! We have received your order and payment request.');
       setCheckoutTarget(null);
       setCheckoutStep(1);
       fetchProducts();
@@ -280,7 +282,6 @@ function App() {
     }
   };
 
-  // Handle Reviews
   const handleAddReview = async (productId, rating, comment) => {
     if (!token) {
       setAuthModalOpen(true);
@@ -509,13 +510,20 @@ function App() {
           <>
             {/* Catalog Page */}
             {activeTab === 'shop' && (
-              <Home
-                products={products}
-                onSelectProduct={(p) => setSelectedProduct(p)}
-                onAddToCart={handleAddToCart}
-                onToggleWishlist={handleToggleWishlist}
-                wishlist={wishlist}
-              />
+              loadingProducts ? (
+                <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-3">
+                  <div className="w-10 h-10 border-4 border-rose-600 border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-sm font-semibold text-gray-500">Loading products from store...</p>
+                </div>
+              ) : (
+                <Home
+                  products={products}
+                  onSelectProduct={(p) => setSelectedProduct(p)}
+                  onAddToCart={handleAddToCart}
+                  onToggleWishlist={handleToggleWishlist}
+                  wishlist={wishlist}
+                />
+              )
             )}
 
             {/* SHOPPING CART PAGE */}
@@ -633,7 +641,7 @@ function App() {
               </div>
             )}
 
-            {/* WISHLIST PAGE (CLICK OPENS PRODUCT DETAIL) */}
+            {/* WISHLIST PAGE */}
             {activeTab === 'wishlist' && (
               <div className="max-w-5xl mx-auto px-4 py-10 animate-in fade-in duration-200">
                 <h2 className="text-2xl font-black mb-6">Your Wishlist ({wishlist.length})</h2>
@@ -733,7 +741,6 @@ function App() {
                           </div>
                         </div>
 
-                        {/* List all items within the order */}
                         <div className="space-y-2">
                           {items.map((itm, idx) => (
                             <div key={idx} className="flex justify-between items-center text-xs text-gray-700 bg-gray-50 p-2.5 rounded-xl">
@@ -800,7 +807,6 @@ function App() {
                         />
                       </div>
 
-                      {/* 3 Price Inputs */}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
                           <label className="text-[10px] font-bold text-gray-500 uppercase">M.R.P. (₹)</label>
@@ -887,7 +893,6 @@ function App() {
 
                   {/* Right Column: Inventory Stock Controller & Incoming Orders */}
                   <div className="lg:col-span-8 space-y-6">
-                    {/* 1. PRODUCT INVENTORY CONTROLLER */}
                     <div className="bg-white p-6 rounded-2xl border shadow-sm">
                       <div className="flex justify-between items-center mb-4">
                         <div>
@@ -984,7 +989,6 @@ function App() {
                       </div>
                     </div>
 
-                    {/* 2. INCOMING ORDERS CONTROLLER */}
                     <div className="bg-white p-6 rounded-2xl border shadow-sm">
                       <h3 className="font-bold text-base text-gray-800 mb-4">
                         Incoming Delivery Requests ({orders.length})
@@ -1012,7 +1016,7 @@ function App() {
                                       Recipient: <span className="font-semibold">{ord.customerName}</span> ({ord.phone})
                                     </p>
                                     <p className="text-gray-500">Address: {ord.address}, {ord.city}</p>
-                                    {ord.notes && <p className="text-gray-400 italic">Note / Ref: "{ord.notes}"</p>}
+                                    {ord.notes && <p className="text-gray-400 italic">Note: "{ord.notes}"</p>}
                                   </div>
 
                                   <span className={`px-2.5 py-1 rounded-full font-bold self-start ${
@@ -1028,7 +1032,6 @@ function App() {
                                   </span>
                                 </div>
 
-                                {/* COMBINED ITEMS LIST FOR THIS ORDER */}
                                 <div className="bg-white p-3 rounded-xl border border-gray-100 space-y-1.5">
                                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide">
                                     Ordered Items:
@@ -1116,12 +1119,10 @@ function App() {
         )}
       </div>
 
-      {/* 2-STEP CHECKOUT MODAL: STEP 1 (ADDRESS) -> STEP 2 (QR CODE & UPI PAYMENT) */}
+      {/* 2-STEP CHECKOUT MODAL */}
       {checkoutTarget && (
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
-            
-            {/* STEP 1: DELIVERY ADDRESS DETAILS */}
             {checkoutStep === 1 && (
               <>
                 <div className="flex justify-between items-center mb-1">
@@ -1218,7 +1219,6 @@ function App() {
               </>
             )}
 
-            {/* STEP 2: PAYMENT SCREEN (QR CODE & UPI DETAILS) */}
             {checkoutStep === 2 && (
               <div className="space-y-4 animate-in fade-in duration-200">
                 <div className="flex justify-between items-center border-b pb-2">
@@ -1230,7 +1230,6 @@ function App() {
                   </span>
                 </div>
 
-                {/* QR Code */}
                 <div className="flex flex-col items-center justify-center p-3 bg-gray-50 rounded-2xl border border-gray-200">
                   <img
                     src={qrCodeImg}
@@ -1243,7 +1242,6 @@ function App() {
                   <span className="text-[10px] text-gray-400 mt-1 font-medium">Scan using any UPI App</span>
                 </div>
 
-                {/* Instructions */}
                 <div className="bg-rose-50 p-3.5 rounded-2xl border border-rose-100 text-xs text-gray-800 space-y-2 leading-relaxed">
                   <p className="font-semibold text-rose-900">
                     Please make the payment in the bar code or You can make payment UPI ID:
@@ -1259,7 +1257,6 @@ function App() {
                   </p>
                 </div>
 
-                {/* Optional note / transaction ref */}
                 <div>
                   <label className="text-[11px] font-semibold text-gray-600 block mb-1">
                     UPI Transaction ID / Ref No. (Optional):
@@ -1291,7 +1288,6 @@ function App() {
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
